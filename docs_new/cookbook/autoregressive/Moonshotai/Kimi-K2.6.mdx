@@ -340,25 +340,31 @@ Tool Call: get_weather
 
 **Handling Tool Call Results:**
 
+Send the returned assistant message and matching tool result back to the model.
+Kimi-K2.6 relies on the original `tool_call.id`; do not replace it with a
+synthetic id such as `"call_123"`. When thinking is enabled, also preserve
+`reasoning_content` by appending the returned message object or serializing its
+`reasoning_content` field into the assistant message.
+
 ```python Example
-# Send tool result back to the model
+first_response = client.chat.completions.create(
+    model="moonshotai/Kimi-K2.6",
+    messages=[
+        {"role": "user", "content": "What's the weather in Beijing?"}
+    ],
+    tools=tools
+)
+
+assistant_message = first_response.choices[0].message
+tool_call = assistant_message.tool_calls[0]
+
 messages = [
     {"role": "user", "content": "What's the weather in Beijing?"},
-    {
-        "role": "assistant",
-        "content": None,
-        "tool_calls": [{
-            "id": "call_123",
-            "type": "function",
-            "function": {
-                "name": "get_weather",
-                "arguments": '{"location": "Beijing", "unit": "celsius"}'
-            }
-        }]
-    },
+    assistant_message,
     {
         "role": "tool",
-        "tool_call_id": "call_123",
+        "tool_call_id": tool_call.id,
+        "name": tool_call.function.name,
         "content": "The weather in Beijing is 22°C and sunny."
     }
 ]

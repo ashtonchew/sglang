@@ -81,6 +81,9 @@ class KimiK2Detector(BaseFormatDetector):
         )
         # Bare call counter: "0", "3" (model uses auto-incrementing counter)
         self.tool_call_id_counter_regex = re.compile(r"^\d+$")
+        self.tool_call_id_prefixed_counter_regex = re.compile(
+            r"^call_?(?P<index>\d+)$"
+        )
 
     def _parse_tool_call_id(
         self, function_id: str, tools: List[Tool], function_args: str = None
@@ -100,6 +103,14 @@ class KimiK2Detector(BaseFormatDetector):
 
         if self.tool_call_id_counter_regex.match(function_id):
             call_index = int(function_id)
+            name = self._infer_tool_name(tools, function_args)
+            if name:
+                return name, call_index
+            return None, call_index
+
+        prefixed = self.tool_call_id_prefixed_counter_regex.match(function_id)
+        if prefixed:
+            call_index = int(prefixed.group("index"))
             name = self._infer_tool_name(tools, function_args)
             if name:
                 return name, call_index

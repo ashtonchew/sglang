@@ -778,6 +778,22 @@ class TestKimiK2BareCounterParsing(unittest.TestCase):
         self.assertEqual(result.calls[0].name, "get_weather")
         self.assertEqual(result.calls[0].parameters, '{"city": "Tokyo"}')
 
+    def test_detect_and_parse_prefixed_counter_call_id(self):
+        for call_id, expected_index in [("call00003", 3), ("call_2", 2)]:
+            with self.subTest(call_id=call_id):
+                text = (
+                    "<|tool_calls_section_begin|>"
+                    f"<|tool_call_begin|>{call_id}"
+                    '<|tool_call_argument_begin|>{"city": "Tokyo"}'
+                    "<|tool_call_end|>"
+                    "<|tool_calls_section_end|>"
+                )
+                result = self.detector.detect_and_parse(text, self.tools)
+                self.assertEqual(len(result.calls), 1)
+                self.assertEqual(result.calls[0].name, "get_weather")
+                self.assertEqual(result.calls[0].tool_index, expected_index)
+                self.assertEqual(result.calls[0].parameters, '{"city": "Tokyo"}')
+
     def test_detect_and_parse_bare_counter_skips_unknown(self):
         text = (
             "<|tool_calls_section_begin|>"
@@ -804,6 +820,21 @@ class TestKimiK2BareCounterParsing(unittest.TestCase):
         tool_calls, _ = _collect_streaming_tool_calls(detector, chunks, single_tool)
         self.assertEqual(len(tool_calls), 1)
         self.assertEqual(tool_calls[0]["name"], "search")
+
+    def test_streaming_prefixed_counter_call_id(self):
+        detector = KimiK2FuncDetector()
+        chunks = [
+            "<|tool_calls_section_begin|>"
+            "<|tool_call_begin|>call_2"
+            '<|tool_call_argument_begin|>{"city',
+            '": "Tokyo"}',
+            "<|tool_call_end|>",
+            "<|tool_calls_section_end|>",
+        ]
+        tool_calls, _ = _collect_streaming_tool_calls(detector, chunks, self.tools)
+        self.assertEqual(len(tool_calls), 1)
+        self.assertEqual(tool_calls[0]["name"], "get_weather")
+        self.assertEqual(tool_calls[0]["parameters"], '{"city": "Tokyo"}')
 
 
 if __name__ == "__main__":
